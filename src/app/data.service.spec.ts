@@ -1,12 +1,13 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientModule, HttpTestingController } from '@angular/common/http';
+import { HttpClientModule, HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { of } from 'rxjs';
 
 import { DataService } from './data.service';
 import { Post } from './model/posts.model';
 
-xdescribe('DataService', () => {
+describe('DataService', () => {
     let service: DataService;
-    let httpMock: HttpTestingController;
+    let httpClientSpy: jasmine.SpyObj<HttpClient>;
 
     beforeEach(() => {
         TestBed.configureTestingModule({
@@ -14,18 +15,15 @@ xdescribe('DataService', () => {
             providers: [DataService]
         });
         service = TestBed.inject(DataService);
-        httpMock = TestBed.inject(HttpTestingController);
-    });
-
-    afterEach(() => {
-        httpMock.verify();
+        httpClientSpy = jasmine.createSpyObj('HttpClient', ['get']);
+        service = new DataService(httpClientSpy);
     });
 
     it('should be created', () => {
         expect(service).toBeTruthy();
     });
 
-    it('should retrive posts from the API via GET', () => {
+    it('should return expected posts (HttpClient called once)', (done: DoneFn) => {
         const dummyPosts: Post[] = [{
             userId: '1',
             id: 1,
@@ -39,15 +37,42 @@ xdescribe('DataService', () => {
             title: 'Testing angular'
         }];
 
+        httpClientSpy.get.and.returnValue(of(dummyPosts));
 
-        service.getPosts().subscribe(posts => {
-            expect(posts.length).toBe(2);
-            expect(posts).toEqual(dummyPosts);
+        service.getPosts().subscribe({
+            next: posts => {
+                expect(posts.length)
+                    .toBe(2);
+                expect(posts)
+                    .toEqual(dummyPosts);
+                done();
+            },
+            error: done.fail
         });
-
-        const request = httpMock.expectOne(`${service.ROOT_URL}/posts`);
-        expect(request.request.methor).toBe('GET');
-        request.flush(dummyPosts);
+        expect(httpClientSpy.get.calls.count())
+            .withContext('one call')
+            .toBe(1);
     });
 
+
+
+    // it('should return an error when the server returns a 404', (done: DoneFn) => {
+    //     const errorResponse = new HttpErrorResponse({
+    //         error: 'test 404 error',
+    //         status: 404, statusText: 'Not Found'
+    //     });
+
+    //     httpClientSpy.get.and.returnValue(asyncError(errorResponse));
+
+    //     service.getPosts().subscribe({
+    //         next: posts => done.fail('expected an error, not heroes'),
+    //         error: error => {
+    //             expect(error.message).toContain('test 404 error');
+    //             done();
+    //         }
+    //     });
+    // });
+
+
 });
+
